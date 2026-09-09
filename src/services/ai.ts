@@ -1,3 +1,4 @@
+```ts
 import { Message, MessageAction } from '../types';
 import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../data/firmData';
 
@@ -175,6 +176,7 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
         ]
       };
     }
+
     return {
       text: `نعم، مكتب شومان للمحاماة يقدم خدمات قانونية متخصصة في قضايا الأسرة والأحوال الشخصية، وتتولى هذا الاختصاص الأستاذة مريم علي (محامية متخصصة في قضايا الأسرة).`,
       actions: [
@@ -290,7 +292,12 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
   }
 
   // 8. Specific Practice Areas
-  if (norm.includes('جنائ') || norm.includes('جنح') || norm.includes('جنايات') || norm.includes('اموال عامه')) {
+  if (
+    norm.includes('جنائ') ||
+    norm.includes('جنح') ||
+    norm.includes('جنايات') ||
+    norm.includes('اموال عامه')
+  ) {
     return {
       text: `نعم، يقدم مكتب شومان للمحاماة خدمات في القضايا الجنائية وقضايا الأموال العامة، بإشراف الأستاذ مازن وليد (محامٍ متخصص في القضايا الجنائية).`,
       actions: [
@@ -300,7 +307,11 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
     };
   }
 
-  if (norm.includes('مدن') || norm.includes('تعويض') || norm.includes('ايجار')) {
+  if (
+    norm.includes('مدن') ||
+    norm.includes('تعويض') ||
+    norm.includes('ايجار')
+  ) {
     return {
       text: `نعم، يقدم مكتب شومان خدمات في القضايا المدنية، بإشراف الأستاذ عماد صابر (محامٍ متخصص في القضايا المدنية).`,
       actions: [
@@ -309,7 +320,12 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
     };
   }
 
-  if (norm.includes('شركات') || norm.includes('تاسيس') || norm.includes('استثمار') || norm.includes('سجل تجار')) {
+  if (
+    norm.includes('شركات') ||
+    norm.includes('تاسيس') ||
+    norm.includes('استثمار') ||
+    norm.includes('سجل تجار')
+  ) {
     return {
       text: `نعم، يقدم مكتب شومان خدمات متكاملة في تأسيس الشركات والاستثمار، واستخراج التراخيص الاستثمارية بمصر.`,
       actions: [
@@ -319,7 +335,12 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
     };
   }
 
-  if (norm.includes('عقد') || norm.includes('عقود') || norm.includes('صياغ') || norm.includes('اتفاقي')) {
+  if (
+    norm.includes('عقد') ||
+    norm.includes('عقود') ||
+    norm.includes('صياغ') ||
+    norm.includes('اتفاقي')
+  ) {
     return {
       text: `نعم، يقدم مكتب شومان خدمات صياغة ومراجعة العقود والاتفاقيات التجارية والمدنية بدقة قانونية محكمة.`,
       actions: [
@@ -328,7 +349,11 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
     };
   }
 
-  if (norm.includes('تحكيم') || norm.includes('منازع') || norm.includes('تسوي')) {
+  if (
+    norm.includes('تحكيم') ||
+    norm.includes('منازع') ||
+    norm.includes('تسوي')
+  ) {
     return {
       text: `نعم، يقدم مكتب شومان خدمات التحكيم وتسوية المنازعات والتفاوض القانوني، بإشراف الأستاذ إبراهيم حمدي (محامٍ متخصص في التحكيم).`,
       actions: [
@@ -337,7 +362,12 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
     };
   }
 
-  if (norm.includes('عمل') || norm.includes('عمال') || norm.includes('موظف') || norm.includes('فصل')) {
+  if (
+    norm.includes('عمل') ||
+    norm.includes('عمال') ||
+    norm.includes('موظف') ||
+    norm.includes('فصل')
+  ) {
     return {
       text: `نعم، يقدم مكتب شومان خدمات قانونية متخصصة في قضايا العمل والنزاعات العمالية.`,
       actions: [
@@ -380,7 +410,13 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
   }
 
   // 11. Greetings alone
-  if (norm.includes('سلام') || norm.includes('مرحبا') || norm.includes('صباح') || norm.includes('مساء') || norm.includes('اهلا')) {
+  if (
+    norm.includes('سلام') ||
+    norm.includes('مرحبا') ||
+    norm.includes('صباح') ||
+    norm.includes('مساء') ||
+    norm.includes('اهلا')
+  ) {
     return {
       text: `وعليكم السلام ورحمة الله وبركاته 🌷\nمرحبًا بك في مكتب شومان للمحاماة والاستشارات القانونية.\nكيف يمكنني مساعدتك اليوم بخصوص خدمات المكتب أو بيانات التواصل؟`,
       actions: [
@@ -406,8 +442,8 @@ export interface SendMessageOptionsWithAttachment extends SendMessageOptions {
 
 /**
  * Public function to send a message.
- * Connects directly to Google Gemini API via the server-side proxy route (/api/chat/stream).
- * Streams model tokens in real time to provide an instant, fluid legal assistant experience.
+ * Connects to Google Gemini through the server-side proxy route (/api/chat).
+ * Simulates smooth text streaming on the client.
  */
 export async function sendMessage(
   message: string,
@@ -419,87 +455,37 @@ export async function sendMessage(
   const actions = fallback.actions;
 
   try {
-    const response = await fetch('/api/chat/stream', {
+    const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message,
-        history: history.map((h) => ({ role: h.role, content: h.content })),
+        history: history.map((h) => ({
+          role: h.role,
+          content: h.content,
+        })),
         attachmentName: options?.attachmentName,
       }),
       signal: options?.signal,
     });
 
-    if (response.ok && response.body) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
+    const data = await response.json();
 
-      while (true) {
-        if (options?.signal?.aborted) {
-          reader.cancel();
-          break;
-        }
-
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('data: ')) {
-            const dataStr = trimmed.slice(6).trim();
-            if (dataStr === '[DONE]') {
-              continue;
-            }
-            try {
-              const parsed = JSON.parse(dataStr);
-              if (parsed.chunk) {
-                replyText += parsed.chunk;
-                options?.onChunk?.(replyText);
-              } else if (parsed.error) {
-                console.warn('Gemini stream fallback notice:', parsed.error);
-              }
-            } catch {
-              // Ignore non-json lines
-            }
-          }
-        }
-      }
-
-      if (replyText.trim()) {
-        return {
-          text: replyText.trim(),
-          actions,
-        };
-      }
+    if (!response.ok) {
+      throw new Error(data.error || 'Gemini request failed');
     }
 
-    // If streaming was empty or failed, fallback to standard JSON endpoint
-    const jsonRes = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        history: history.map((h) => ({ role: h.role, content: h.content })),
-        attachmentName: options?.attachmentName,
-      }),
-      signal: options?.signal,
-    });
-
-    if (jsonRes.ok) {
-      const data = await jsonRes.json();
-      if (data.reply) {
-        replyText = data.reply;
-      }
+    if (!data.reply) {
+      throw new Error('Gemini returned an empty response');
     }
+
+    replyText = data.reply.trim();
+
   } catch (err: unknown) {
     if (options?.signal?.aborted) {
       throw err;
     }
+
     console.warn('Gemini chat notice:', err);
   }
 
@@ -508,7 +494,7 @@ export async function sendMessage(
     replyText = fallback.text;
   }
 
-  // Realistic text streaming simulation if not already streamed by server
+  // Smooth text streaming simulation on the client
   const chunks = replyText.split(/(\s+)/);
   let currentAccumulated = '';
 
@@ -516,8 +502,10 @@ export async function sendMessage(
     if (options?.signal?.aborted) {
       break;
     }
+
     currentAccumulated += chunks[i];
     options?.onChunk?.(currentAccumulated);
+
     const delay = chunks[i].includes('\n') ? 16 : 6;
     await new Promise((res) => setTimeout(res, delay));
   }
@@ -527,3 +515,4 @@ export async function sendMessage(
     actions,
   };
 }
+```
