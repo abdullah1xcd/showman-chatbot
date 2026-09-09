@@ -3,19 +3,10 @@ import { Message, MessageAction } from '../types';
 import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../data/firmData';
 
 /**
- * Service abstraction for SHOMAN AI.
+ * SHOMAN AI service
  *
- * Rules:
- * 1. Arabic reply for Arabic, English reply for English.
- * 2. Short, clear, WhatsApp-optimized responses.
- * 3. Strictly using provided office information.
- * 4. Never inventing unverified info, prices, or schedules.
- * 5. If information is not present, refer the user to the office team.
- * 6. Never providing a final case verdict or legal decree.
- * 7. Informational assistant role, not claiming to be a lawyer.
- * 8. Directing consultation booking to the firm's team.
- * 9. Both phone numbers are presented equally.
- * 10. Concise answers.
+ * Gemini is called through the server-side /api/chat endpoint.
+ * If Gemini is unavailable, the verified local fallback responses are used.
  */
 
 export const SYSTEM_PROMPT = FIRM_SYSTEM_INSTRUCTIONS;
@@ -30,12 +21,17 @@ interface SendMessageOptions {
   signal?: AbortSignal;
 }
 
+export interface SendMessageOptionsWithAttachment
+  extends SendMessageOptions {
+  attachmentName?: string;
+}
+
 function normalizeText(text: string): string {
   return text
     .toLowerCase()
     .replace(/[أإآ]/g, 'ا')
-    .replace(/[ة]/g, 'ه')
-    .replace(/[ى]/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
     .replace(/[؟?.,!،]/g, ' ')
     .trim();
 }
@@ -43,14 +39,19 @@ function normalizeText(text: string): string {
 function isEnglishQuery(text: string): boolean {
   const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
   const latinChars = (text.match(/[a-zA-Z]/g) || []).length;
+
   return latinChars > arabicChars;
 }
 
-export function resolveMockResponse(userMessage: string): AIResponseResult {
+/**
+ * Local fallback responses.
+ * These are used only when Gemini cannot respond.
+ */
+export function resolveMockResponse(
+  userMessage: string
+): AIResponseResult {
   const norm = normalizeText(userMessage);
-  const isEn = isEnglishQuery(userMessage);
-
-  // ===================== COMMON ACTIONS =====================
+  const isEnglish = isEnglishQuery(userMessage);
 
   const contactActions: MessageAction[] = [
     {
@@ -87,10 +88,13 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
     },
   ];
 
-  // ===================== ENGLISH RESPONSES =====================
+  /*
+   * =========================
+   * ENGLISH
+   * =========================
+   */
 
-  if (isEn) {
-    // Address / Location
+  if (isEnglish) {
     if (
       norm.includes('address') ||
       norm.includes('location') ||
@@ -98,7 +102,8 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
       norm.includes('place')
     ) {
       return {
-        text: `Shoman Law Firm address:\n${FIRM_DATA.address}.`,
+        text: `Shoman Law Firm address:
+${FIRM_DATA.address}.`,
         actions: [
           {
             label: 'Open in Google Maps',
@@ -114,7 +119,6 @@ export function resolveMockResponse(userMessage: string): AIResponseResult {
       };
     }
 
-    // Friday
     if (norm.includes('friday')) {
       return {
         text: `The office is closed on Friday.
@@ -134,7 +138,6 @@ Emergency consultations are available 24/7.`,
       };
     }
 
-    // Working hours
     if (
       norm.includes('hour') ||
       norm.includes('time') ||
@@ -157,7 +160,6 @@ Emergency consultations: Available 24 hours.`,
       };
     }
 
-    // Booking / Contact
     if (
       norm.includes('book') ||
       norm.includes('consult') ||
@@ -169,16 +171,17 @@ Emergency consultations: Available 24 hours.`,
       norm.includes('email')
     ) {
       return {
-        text: `Our office team can assist you with booking procedures. You can contact us at:
+        text: `Our office team can assist you with booking procedures.
+
 Phone numbers:
 - 01066650075
 - +20 102 410 1115
+
 Email: ${FIRM_DATA.email}`,
         actions: contactActions,
       };
     }
 
-    // Case / Legal Advice
     if (
       norm.includes('my case') ||
       norm.includes('advice') ||
@@ -202,7 +205,6 @@ Email: ${FIRM_DATA.email}`,
       };
     }
 
-    // Cost / Fees
     if (
       norm.includes('cost') ||
       norm.includes('price') ||
@@ -227,7 +229,6 @@ Email: ${FIRM_DATA.email}`,
       };
     }
 
-    // Services
     if (
       norm.includes('service') ||
       norm.includes('practice') ||
@@ -260,7 +261,6 @@ Email: ${FIRM_DATA.email}`,
       };
     }
 
-    // Team
     if (
       norm.includes('team') ||
       norm.includes('lawyer') ||
@@ -280,7 +280,6 @@ Email: ${FIRM_DATA.email}`,
       };
     }
 
-    // Greetings
     if (
       norm.includes('hello') ||
       norm.includes('hi') ||
@@ -304,7 +303,6 @@ Email: ${FIRM_DATA.email}`,
       };
     }
 
-    // English fallback
     return {
       text: `I do not have this information currently, but a member of the firm's team will be able to assist you.`,
       actions: [
@@ -322,9 +320,12 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // ===================== ARABIC RESPONSES =====================
+  /*
+   * =========================
+   * ARABIC
+   * =========================
+   */
 
-  // 1. Family Law
   if (
     norm.includes('اسري') ||
     norm.includes('اسره') ||
@@ -333,25 +334,6 @@ Email: ${FIRM_DATA.email}`,
     norm.includes('احوال شخصي') ||
     norm.includes('حضانه')
   ) {
-    if (norm.includes('سلام') || norm.includes('مرحبا')) {
-      return {
-        text: `وعليكم السلام ورحمة الله وبركاته 🌷
-نعم، مكتب شومان للمحاماة يقدم خدمات قانونية في قضايا الأسرة.
-هل ترغب في معرفة المزيد عن خدمات المكتب؟`,
-        actions: [
-          {
-            label: 'حجز استشارة أسرية',
-            actionType: 'book',
-          },
-          {
-            label: 'محادثة عبر واتساب',
-            actionType: 'whatsapp',
-            payload: 'https://wa.me/201066650075',
-          },
-        ],
-      };
-    }
-
     return {
       text: `نعم، مكتب شومان للمحاماة يقدم خدمات قانونية متخصصة في قضايا الأسرة والأحوال الشخصية، وتتولى هذا الاختصاص الأستاذة مريم علي (محامية متخصصة في قضايا الأسرة).`,
       actions: [
@@ -368,7 +350,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 2. Office Address
   if (
     norm.includes('عنوان') ||
     norm.includes('فين') ||
@@ -384,8 +365,10 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 3. Friday
-  if (norm.includes('الجمعه') || norm.includes('جمعه')) {
+  if (
+    norm.includes('الجمعه') ||
+    norm.includes('جمعه')
+  ) {
     return {
       text: `المكتب مغلق يوم الجمعة.
 مواعيد العمل من السبت إلى الخميس، من 9:00 صباحًا إلى 6:00 مساءً.`,
@@ -403,7 +386,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 4. Working Hours
   if (
     norm.includes('مواعيد') ||
     norm.includes('ساعات') ||
@@ -431,7 +413,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 5. Case Advice
   if (
     norm.includes('عندي قضيه') ||
     norm.includes('اعمل ايه') ||
@@ -463,7 +444,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 6. Prices / Fees
   if (
     norm.includes('سعر') ||
     norm.includes('اسعار') ||
@@ -490,7 +470,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 7. Booking / Contact
   if (
     norm.includes('حجز') ||
     norm.includes('استشاره') ||
@@ -515,7 +494,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 8. Criminal Law
   if (
     norm.includes('جنائ') ||
     norm.includes('جنح') ||
@@ -538,7 +516,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // Civil Law
   if (
     norm.includes('مدن') ||
     norm.includes('تعويض') ||
@@ -555,7 +532,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // Companies / Investment
   if (
     norm.includes('شركات') ||
     norm.includes('تاسيس') ||
@@ -578,7 +554,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // Contracts
   if (
     norm.includes('عقد') ||
     norm.includes('عقود') ||
@@ -596,7 +571,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // Arbitration / Disputes
   if (
     norm.includes('تحكيم') ||
     norm.includes('منازع') ||
@@ -613,7 +587,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // Labor Law
   if (
     norm.includes('عمل') ||
     norm.includes('عمال') ||
@@ -631,7 +604,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 9. Services List
   if (
     norm.includes('خدمات') ||
     norm.includes('خدمه') ||
@@ -666,7 +638,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 10. Team / Lawyers
   if (
     norm.includes('فريق') ||
     norm.includes('محامين') ||
@@ -692,7 +663,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // 11. Greetings
   if (
     norm.includes('سلام') ||
     norm.includes('مرحبا') ||
@@ -718,7 +688,6 @@ Email: ${FIRM_DATA.email}`,
     };
   }
 
-  // Default Arabic fallback
   return {
     text: `لا أملك هذه المعلومة حاليًا، ويمكن لأحد أعضاء فريق المكتب مساعدتك.`,
     actions: [
@@ -736,19 +705,8 @@ Email: ${FIRM_DATA.email}`,
   };
 }
 
-export interface SendMessageOptionsWithAttachment
-  extends SendMessageOptions {
-  attachmentName?: string;
-}
-
 /**
- * Public function to send a message.
- *
- * Connects to Google Gemini through the server-side
- * /api/chat endpoint.
- *
- * The server returns normal JSON.
- * The client then simulates smooth text streaming.
+ * Sends the user's message to the server-side Gemini endpoint.
  */
 export async function sendMessage(
   message: string,
@@ -759,8 +717,6 @@ export async function sendMessage(
 
   let replyText = '';
 
-  const actions = fallback.actions;
-
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -769,9 +725,9 @@ export async function sendMessage(
       },
       body: JSON.stringify({
         message,
-        history: history.map((h) => ({
-          role: h.role,
-          content: h.content,
+        history: history.map((item) => ({
+          role: item.role,
+          content: item.content,
         })),
         attachmentName: options?.attachmentName,
       }),
@@ -786,54 +742,59 @@ export async function sendMessage(
       );
     }
 
-    if (!data?.reply) {
+    if (
+      typeof data?.reply !== 'string' ||
+      !data.reply.trim()
+    ) {
       throw new Error(
         'Gemini returned an empty response'
       );
     }
 
-    replyText = String(data.reply).trim();
-
-  } catch (err: unknown) {
+    replyText = data.reply.trim();
+  } catch (error: unknown) {
     if (options?.signal?.aborted) {
-      throw err;
+      throw error;
     }
 
-    console.warn('Gemini chat notice:', err);
+    console.warn(
+      'Gemini chat failed. Using local fallback.',
+      error
+    );
   }
 
-  // Use the verified office knowledge base
-  // if Gemini failed or returned an empty response.
-  if (!replyText.trim()) {
+  if (!replyText) {
     replyText = fallback.text;
   }
 
-  // Smooth client-side text streaming.
+  /*
+   * Simulate streaming on the client so the UI
+   * still displays the response smoothly.
+   */
   const chunks = replyText.split(/(\s+)/);
+  let accumulated = '';
 
-  let currentAccumulated = '';
-
-  for (let i = 0; i < chunks.length; i++) {
+  for (const chunk of chunks) {
     if (options?.signal?.aborted) {
       break;
     }
 
-    currentAccumulated += chunks[i];
+    accumulated += chunk;
 
-    options?.onChunk?.(currentAccumulated);
+    if (options?.onChunk) {
+      options.onChunk(accumulated);
+    }
 
-    const delay = chunks[i].includes('\n')
-      ? 16
-      : 6;
+    const delay = chunk.includes('\n') ? 16 : 6;
 
-    await new Promise((res) =>
-      setTimeout(res, delay)
-    );
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, delay);
+    });
   }
 
   return {
     text: replyText,
-    actions,
+    actions: fallback.actions,
   };
 }
 ```
