@@ -1,109 +1,50 @@
 ```ts
 import { Message, MessageAction } from '../types';
-import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../data/firmData';
+import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../constants';
 
-/**
- * SHOMAN AI service
- *
- * Gemini is called through the server-side /api/chat endpoint.
- * If Gemini is unavailable, the verified local fallback responses are used.
- */
-
-export const SYSTEM_PROMPT = FIRM_SYSTEM_INSTRUCTIONS;
+const SYSTEM_PROMPT =
+  FIRM_SYSTEM_INSTRUCTIONS ||
+  'You are the AI assistant for Shoman Law Firm. Answer accurately and professionally in Arabic or English.';
 
 export interface AIResponseResult {
   text: string;
   actions?: MessageAction[];
 }
 
-interface SendMessageOptions {
-  onChunk?: (streamedText: string) => void;
+export interface SendMessageOptions {
   signal?: AbortSignal;
-}
-
-export interface SendMessageOptionsWithAttachment
-  extends SendMessageOptions {
   attachmentName?: string;
 }
 
 function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/[؟?.,!،]/g, ' ')
-    .trim();
+  return text.trim().toLowerCase();
 }
 
 function isEnglishQuery(text: string): boolean {
-  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
-  const latinChars = (text.match(/[a-zA-Z]/g) || []).length;
+  const englishChars = text.match(/[a-z]/gi);
+  const arabicChars = text.match(/[\u0600-\u06ff]/g);
 
-  return latinChars > arabicChars;
+  return (englishChars?.length || 0) > (arabicChars?.length || 0);
 }
 
-/**
- * Local fallback responses.
- * These are used only when Gemini cannot respond.
- */
-export function resolveMockResponse(
-  userMessage: string
-): AIResponseResult {
-  const norm = normalizeText(userMessage);
-  const isEnglish = isEnglishQuery(userMessage);
+function resolveMockResponse(message: string): AIResponseResult {
+  const query = normalizeText(message);
+  const english = isEnglishQuery(message);
 
-  const contactActions: MessageAction[] = [
-    {
-      label: 'اتصال: 01066650075',
-      actionType: 'call',
-      payload: '01066650075',
-    },
-    {
-      label: 'اتصال: +20 102 410 1115',
-      actionType: 'call',
-      payload: '+201024101115',
-    },
-    {
-      label: 'واتساب المستشار',
-      actionType: 'whatsapp',
-      payload: 'https://wa.me/201066650075',
-    },
-    {
-      label: 'حجز موعد استشارة',
-      actionType: 'book',
-    },
-  ];
-
-  const locationActions: MessageAction[] = [
-    {
-      label: 'موقع المكتب على خرائط Google',
-      actionType: 'location',
-      payload: 'https://maps.google.com/?q=مدينة+نصر+القاهرة',
-    },
-    {
-      label: 'اتصال هاتفي',
-      actionType: 'call',
-      payload: '01066650075',
-    },
-  ];
-
-  /*
-   * =========================
-   * ENGLISH
-   * =========================
-   */
-
-  if (isEnglish) {
-    if (
-      norm.includes('address') ||
-      norm.includes('location') ||
-      norm.includes('where') ||
-      norm.includes('place')
-    ) {
+  if (
+    query.includes('where') ||
+    query.includes('location') ||
+    query.includes('address') ||
+    query.includes('فين') ||
+    query.includes('عنوان') ||
+    query.includes('مكان')
+  ) {
+    if (english) {
       return {
-        text: `Shoman Law Firm address:
-${FIRM_DATA.address}.`,
+        text:
+          'Shoman Law Firm address:\n' +
+          FIRM_DATA.address +
+          '.',
         actions: [
           {
             label: 'Open in Google Maps',
@@ -119,138 +60,43 @@ ${FIRM_DATA.address}.`,
       };
     }
 
-    if (norm.includes('friday')) {
-      return {
-        text: `The office is closed on Friday.
-Working hours are Saturday to Thursday, from 9:00 AM to 6:00 PM.
-Emergency consultations are available 24/7.`,
-        actions: [
-          {
-            label: 'Book Appointment',
-            actionType: 'book',
-          },
-          {
-            label: 'WhatsApp Concierge',
-            actionType: 'whatsapp',
-            payload: 'https://wa.me/201066650075',
-          },
-        ],
-      };
-    }
+    return {
+      text:
+        'عنوان مكتب شومان للمحاماة:\n' +
+        FIRM_DATA.address +
+        '.',
+      actions: [
+        {
+          label: 'فتح الموقع على الخريطة',
+          actionType: 'location',
+          payload: 'https://maps.google.com/?q=مدينة+نصر+القاهرة',
+        },
+        {
+          label: 'الاتصال بالمكتب',
+          actionType: 'call',
+          payload: '01066650075',
+        },
+      ],
+    };
+  }
 
-    if (
-      norm.includes('hour') ||
-      norm.includes('time') ||
-      norm.includes('open') ||
-      norm.includes('schedule') ||
-      norm.includes('work')
-    ) {
+  if (
+    query.includes('phone') ||
+    query.includes('telephone') ||
+    query.includes('call') ||
+    query.includes('رقم') ||
+    query.includes('تليفون') ||
+    query.includes('اتصل')
+  ) {
+    if (english) {
       return {
-        text: `Shoman Law Firm working hours:
-Saturday to Thursday: 9:00 AM to 6:00 PM.
-Friday: Closed.
-Emergency consultations: Available 24 hours.`,
+        text:
+          'You can contact Shoman Law Firm at 01066650075 or +20 102 410 1115.',
         actions: [
           {
-            label: 'Call 01066650075',
+            label: 'Call Office',
             actionType: 'call',
             payload: '01066650075',
-          },
-        ],
-      };
-    }
-
-    if (
-      norm.includes('book') ||
-      norm.includes('consult') ||
-      norm.includes('appointment') ||
-      norm.includes('phone') ||
-      norm.includes('contact') ||
-      norm.includes('number') ||
-      norm.includes('call') ||
-      norm.includes('email')
-    ) {
-      return {
-        text: `Our office team can assist you with booking procedures.
-
-Phone numbers:
-- 01066650075
-- +20 102 410 1115
-
-Email: ${FIRM_DATA.email}`,
-        actions: contactActions,
-      };
-    }
-
-    if (
-      norm.includes('my case') ||
-      norm.includes('advice') ||
-      norm.includes('sue') ||
-      norm.includes('what should i do') ||
-      norm.includes('legal opinion')
-    ) {
-      return {
-        text: `I can provide general information about the firm's services, but evaluating your case and providing legal advice requires review by one of our firm's lawyers. I can help you connect with our team.`,
-        actions: [
-          {
-            label: 'Connect with Lawyer',
-            actionType: 'book',
-          },
-          {
-            label: 'Chat on WhatsApp',
-            actionType: 'whatsapp',
-            payload: 'https://wa.me/201066650075',
-          },
-        ],
-      };
-    }
-
-    if (
-      norm.includes('cost') ||
-      norm.includes('price') ||
-      norm.includes('fee') ||
-      norm.includes('rate') ||
-      norm.includes('how much')
-    ) {
-      return {
-        text: `I do not have this information currently, but a member of the firm's team will be able to assist you.`,
-        actions: [
-          {
-            label: 'Contact Firm Team',
-            actionType: 'call',
-            payload: '01066650075',
-          },
-          {
-            label: 'WhatsApp Inquiry',
-            actionType: 'whatsapp',
-            payload: 'https://wa.me/201066650075',
-          },
-        ],
-      };
-    }
-
-    if (
-      norm.includes('service') ||
-      norm.includes('practice') ||
-      norm.includes('what do you do') ||
-      norm.includes('field')
-    ) {
-      return {
-        text: `Shoman Law Firm provides legal services in:
-- Civil Law
-- Commercial Law
-- Contract Drafting & Review
-- Company Formation & Investment
-- Arbitration & Dispute Resolution
-- Family Law
-- Labor Law
-- Criminal Law & Public Funds
-- Legal Negotiation & Settlement
-- Legal Consultations`,
-        actions: [
-          {
-            label: 'Request Consultation',
-            actionType: 'book',
           },
           {
             label: 'WhatsApp',
@@ -261,88 +107,19 @@ Email: ${FIRM_DATA.email}`,
       };
     }
 
-    if (
-      norm.includes('team') ||
-      norm.includes('lawyer') ||
-      norm.includes('founder') ||
-      norm.includes('rabie') ||
-      norm.includes('who are')
-    ) {
-      return {
-        text: `Shoman Law Firm Team:
-- Rabie Shoman — Founder & Managing Director
-- Belal Haroon — Senior Associate
-- Marwan Mohamed — Lawyer & Legal Consultant
-- Emad Saber — Civil Law Specialist
-- Mazen Walid — Criminal Law Specialist
-- Maryam Ali — Family Law Specialist
-- Ibrahim Hamdy — Arbitration & Dispute Resolution Specialist`,
-      };
-    }
-
-    if (
-      norm.includes('hello') ||
-      norm.includes('hi') ||
-      norm.includes('hey') ||
-      norm.includes('good morning') ||
-      norm.includes('good afternoon')
-    ) {
-      return {
-        text: `Hello! Welcome to Shoman Law Firm's official legal assistant. How can I assist you today?`,
-        actions: [
-          {
-            label: 'View Services',
-            actionType: 'book',
-          },
-          {
-            label: 'Contact Lawyers',
-            actionType: 'call',
-            payload: '01066650075',
-          },
-        ],
-      };
-    }
-
     return {
-      text: `I do not have this information currently, but a member of the firm's team will be able to assist you.`,
+      text:
+        'يمكنك التواصل مع مكتب شومان للمحاماة على:\n' +
+        '01066650075\n' +
+        '+20 102 410 1115',
       actions: [
         {
-          label: 'Contact Office',
+          label: 'الاتصال بالمكتب',
           actionType: 'call',
           payload: '01066650075',
         },
         {
-          label: 'Chat on WhatsApp',
-          actionType: 'whatsapp',
-          payload: 'https://wa.me/201066650075',
-        },
-      ],
-    };
-  }
-
-  /*
-   * =========================
-   * ARABIC
-   * =========================
-   */
-
-  if (
-    norm.includes('اسري') ||
-    norm.includes('اسره') ||
-    norm.includes('طلاق') ||
-    norm.includes('نفقه') ||
-    norm.includes('احوال شخصي') ||
-    norm.includes('حضانه')
-  ) {
-    return {
-      text: `نعم، مكتب شومان للمحاماة يقدم خدمات قانونية متخصصة في قضايا الأسرة والأحوال الشخصية، وتتولى هذا الاختصاص الأستاذة مريم علي (محامية متخصصة في قضايا الأسرة).`,
-      actions: [
-        {
-          label: 'حجز موعد مع الأستاذة مريم علي',
-          actionType: 'book',
-        },
-        {
-          label: 'واتساب المكتب',
+          label: 'واتساب',
           actionType: 'whatsapp',
           payload: 'https://wa.me/201066650075',
         },
@@ -351,118 +128,17 @@ Email: ${FIRM_DATA.email}`,
   }
 
   if (
-    norm.includes('عنوان') ||
-    norm.includes('فين') ||
-    norm.includes('اين') ||
-    norm.includes('موقع') ||
-    norm.includes('مكان') ||
-    norm.includes('مدينه نصر')
+    query.includes('whatsapp') ||
+    query.includes('واتساب') ||
+    query.includes('واتس')
   ) {
     return {
-      text: `عنوان مكتب شومان:
-٦ شارع السباح عبدالمنعم، الحي السابع، مدينة نصر، القاهرة، مصر.`,
-      actions: locationActions,
-    };
-  }
-
-  if (
-    norm.includes('الجمعه') ||
-    norm.includes('جمعه')
-  ) {
-    return {
-      text: `المكتب مغلق يوم الجمعة.
-مواعيد العمل من السبت إلى الخميس، من 9:00 صباحًا إلى 6:00 مساءً.`,
+      text: english
+        ? 'You can contact Shoman Law Firm through WhatsApp.'
+        : 'يمكنك التواصل مع مكتب شومان للمحاماة من خلال واتساب.',
       actions: [
         {
-          label: 'حجز موعد بمقر المكتب',
-          actionType: 'book',
-        },
-        {
-          label: 'طوارئ الاستشارات 24 ساعة',
-          actionType: 'call',
-          payload: '01066650075',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('مواعيد') ||
-    norm.includes('ساعات') ||
-    norm.includes('دوام') ||
-    norm.includes('وقت العمل') ||
-    norm.includes('مفتوح') ||
-    norm.includes('شغالين')
-  ) {
-    return {
-      text: `مواعيد العمل في مكتب شومان:
-السبت إلى الخميس: من 9:00 صباحًا إلى 6:00 مساءً.
-الجمعة: مغلق.
-الاستشارات الطارئة: متاحة على مدار 24 ساعة.`,
-      actions: [
-        {
-          label: 'حجز موعد مقابلة',
-          actionType: 'book',
-        },
-        {
-          label: 'اتصال هاتفي',
-          actionType: 'call',
-          payload: '01066650075',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('عندي قضيه') ||
-    norm.includes('اعمل ايه') ||
-    norm.includes('رايك ايه') ||
-    norm.includes('موقفي ايه') ||
-    norm.includes('انصحني') ||
-    norm.includes('مشوره') ||
-    norm.includes('حكم ايه') ||
-    norm.includes('تكسب القضيه')
-  ) {
-    return {
-      text: `يمكنني مساعدتك بالمعلومات العامة عن خدمات المكتب، لكن تقييم حالتك وتقديم المشورة القانونية يحتاج إلى مراجعة أحد محامي المكتب. يمكنني مساعدتك في التواصل مع فريق المكتب.`,
-      actions: [
-        {
-          label: 'طلب حجز دراسة قضية',
-          actionType: 'book',
-        },
-        {
-          label: 'محادثة المحامي عبر واتساب',
-          actionType: 'whatsapp',
-          payload: 'https://wa.me/201066650075',
-        },
-        {
-          label: 'اتصال مباشر بالمكتب',
-          actionType: 'call',
-          payload: '01066650075',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('سعر') ||
-    norm.includes('اسعار') ||
-    norm.includes('تكلف') ||
-    norm.includes('اتعاب') ||
-    norm.includes('بكام') ||
-    norm.includes('كام بتكلف') ||
-    norm.includes('رسوم')
-  ) {
-    return {
-      text: `لا أملك هذه المعلومة حاليًا، ويمكن لأحد أعضاء فريق المكتب مساعدتك.`,
-      actions: [
-        {
-          label: 'التواصل مع فريق المكتب',
-          actionType: 'call',
-          payload: '01066650075',
-        },
-        {
-          label: 'استفسار عبر واتساب',
+          label: english ? 'Open WhatsApp' : 'فتح واتساب',
           actionType: 'whatsapp',
           payload: 'https://wa.me/201066650075',
         },
@@ -471,44 +147,63 @@ Email: ${FIRM_DATA.email}`,
   }
 
   if (
-    norm.includes('حجز') ||
-    norm.includes('استشاره') ||
-    norm.includes('موعد') ||
-    norm.includes('تواصل') ||
-    norm.includes('اتصال') ||
-    norm.includes('تليفون') ||
-    norm.includes('هاتف') ||
-    norm.includes('رقم') ||
-    norm.includes('ارقام') ||
-    norm.includes('ايميل') ||
-    norm.includes('بريد')
+    query.includes('email') ||
+    query.includes('mail') ||
+    query.includes('ايميل') ||
+    query.includes('إيميل') ||
+    query.includes('بريد')
   ) {
     return {
-      text: `يسعدنا تواصلك. يمكن لفريق المكتب مساعدتك في إجراءات حجز الاستشارة عبر:
-أرقام الهاتف:
-- 01066650075
-- +20 102 410 1115
-البريد الإلكتروني: ${FIRM_DATA.email}
-الموقع الرسمي: ${FIRM_DATA.website}`,
-      actions: contactActions,
+      text: english
+        ? 'You can contact the firm by email at ' + FIRM_DATA.email + '.'
+        : 'يمكنك التواصل مع المكتب عبر البريد الإلكتروني: ' +
+          FIRM_DATA.email +
+          '.',
+      actions: [
+        {
+          label: english ? 'Send Email' : 'إرسال بريد إلكتروني',
+          actionType: 'email',
+          payload: FIRM_DATA.email,
+        },
+      ],
     };
   }
 
   if (
-    norm.includes('جنائ') ||
-    norm.includes('جنح') ||
-    norm.includes('جنايات') ||
-    norm.includes('اموال عامه')
+    query.includes('website') ||
+    query.includes('site') ||
+    query.includes('موقع المكتب') ||
+    query.includes('الموقع')
   ) {
     return {
-      text: `نعم، يقدم مكتب شومان للمحاماة خدمات في القضايا الجنائية وقضايا الأموال العامة، بإشراف الأستاذ مازن وليد (محامٍ متخصص في القضايا الجنائية).`,
+      text: english
+        ? 'You can visit the official Shoman Law Firm website.'
+        : 'يمكنك زيارة الموقع الرسمي لمكتب شومان للمحاماة.',
       actions: [
         {
-          label: 'حجز استشارة جنائية عاجلة',
-          actionType: 'book',
+          label: english ? 'Open Website' : 'فتح الموقع',
+          actionType: 'link',
+          payload: FIRM_DATA.website,
         },
+      ],
+    };
+  }
+
+  if (
+    query.includes('hours') ||
+    query.includes('working hours') ||
+    query.includes('open') ||
+    query.includes('مواعيد') ||
+    query.includes('مواعيد العمل') ||
+    query.includes('شغال')
+  ) {
+    return {
+      text: english
+        ? 'Please contact the office directly to confirm the current working hours and appointment availability.'
+        : 'يرجى التواصل مع المكتب مباشرة للتأكد من مواعيد العمل الحالية وتوافر المواعيد.',
+      actions: [
         {
-          label: 'اتصال طوارئ 24 ساعة',
+          label: english ? 'Call Office' : 'الاتصال بالمكتب',
           actionType: 'call',
           payload: '01066650075',
         },
@@ -517,204 +212,76 @@ Email: ${FIRM_DATA.email}`,
   }
 
   if (
-    norm.includes('مدن') ||
-    norm.includes('تعويض') ||
-    norm.includes('ايجار')
+    query.includes('service') ||
+    query.includes('services') ||
+    query.includes('خدمات') ||
+    query.includes('بتقدموا ايه') ||
+    query.includes('بتقدموا اي') ||
+    query.includes('ماذا تقدم')
   ) {
     return {
-      text: `نعم، يقدم مكتب شومان خدمات في القضايا المدنية، بإشراف الأستاذ عماد صابر (محامٍ متخصص في القضايا المدنية).`,
-      actions: [
-        {
-          label: 'حجز استشارة في القضايا المدنية',
-          actionType: 'book',
-        },
-      ],
+      text: english
+        ? 'Shoman Law Firm provides legal services including litigation, contracts, corporate matters, civil and criminal cases, family matters, labor matters, and legal consultations.'
+        : 'يقدم مكتب شومان للمحاماة خدمات قانونية متعددة، منها التقاضي، وصياغة ومراجعة العقود، والشؤون التجارية والشركات، والقضايا المدنية والجنائية، وقضايا الأسرة والعمل، والاستشارات القانونية.',
     };
   }
 
   if (
-    norm.includes('شركات') ||
-    norm.includes('تاسيس') ||
-    norm.includes('استثمار') ||
-    norm.includes('سجل تجار')
+    query.includes('price') ||
+    query.includes('prices') ||
+    query.includes('cost') ||
+    query.includes('fee') ||
+    query.includes('fees') ||
+    query.includes('سعر') ||
+    query.includes('اسعار') ||
+    query.includes('أسعار') ||
+    query.includes('تكلفة') ||
+    query.includes('أتعاب') ||
+    query.includes('اتعاب')
   ) {
     return {
-      text: `نعم، يقدم مكتب شومان خدمات متكاملة في تأسيس الشركات والاستثمار، واستخراج التراخيص الاستثمارية بمصر.`,
+      text: english
+        ? 'Legal fees depend on the type and complexity of the case. Please contact the office for an accurate quotation after discussing your case.'
+        : 'تختلف أتعاب المحاماة حسب نوع القضية ومدى تعقيدها. يرجى التواصل مع المكتب للحصول على عرض سعر مناسب بعد معرفة تفاصيل الحالة.',
       actions: [
         {
-          label: 'طلب تأسيس شركة أو استشارة',
-          actionType: 'book',
-        },
-        {
-          label: 'واتساب المكتب',
-          actionType: 'whatsapp',
-          payload: 'https://wa.me/201066650075',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('عقد') ||
-    norm.includes('عقود') ||
-    norm.includes('صياغ') ||
-    norm.includes('اتفاقي')
-  ) {
-    return {
-      text: `نعم، يقدم مكتب شومان خدمات صياغة ومراجعة العقود والاتفاقيات التجارية والمدنية بدقة قانونية محكمة.`,
-      actions: [
-        {
-          label: 'طلب مراجعة أو صياغة عقد',
-          actionType: 'book',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('تحكيم') ||
-    norm.includes('منازع') ||
-    norm.includes('تسوي')
-  ) {
-    return {
-      text: `نعم، يقدم مكتب شومان خدمات التحكيم وتسوية المنازعات والتفاوض القانوني، بإشراف الأستاذ إبراهيم حمدي (محامٍ متخصص في التحكيم).`,
-      actions: [
-        {
-          label: 'حجز جلسة تحكيم أو تسوية',
-          actionType: 'book',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('عمل') ||
-    norm.includes('عمال') ||
-    norm.includes('موظف') ||
-    norm.includes('فصل')
-  ) {
-    return {
-      text: `نعم، يقدم مكتب شومان خدمات قانونية متخصصة في قضايا العمل والنزاعات العمالية.`,
-      actions: [
-        {
-          label: 'حجز استشارة قضايا العمل',
-          actionType: 'book',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('خدمات') ||
-    norm.includes('خدمه') ||
-    norm.includes('مجالات') ||
-    norm.includes('تخصص') ||
-    norm.includes('بتعملوا ايه')
-  ) {
-    return {
-      text: `يقدم مكتب شومان للمحاماة خدمات في المجالات التالية:
-- القضايا المدنية
-- القضايا التجارية
-- صياغة ومراجعة العقود والاتفاقيات
-- تأسيس الشركات والاستثمار
-- التحكيم وتسوية المنازعات
-- قضايا الأسرة
-- قضايا العمل
-- القضايا الجنائية
-- قضايا الأموال العامة
-- التفاوض والتسويات القانونية
-- الاستشارات القانونية`,
-      actions: [
-        {
-          label: 'طلب استشارة قانونية',
-          actionType: 'book',
-        },
-        {
-          label: 'واتساب المكتب',
-          actionType: 'whatsapp',
-          payload: 'https://wa.me/201066650075',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('فريق') ||
-    norm.includes('محامين') ||
-    norm.includes('المؤسس') ||
-    norm.includes('شومان') ||
-    norm.includes('مين في المكتب')
-  ) {
-    return {
-      text: `فريق العمل في مكتب شومان للمحاماة:
-- ربيع شومان — المؤسس والمدير التنفيذي
-- بلال هارون — محامٍ أول
-- مروان محمد — محامٍ ومستشار قانوني
-- عماد صابر — محامٍ متخصص في القضايا المدنية
-- مازن وليد — محامٍ متخصص في القضايا الجنائية
-- مريم علي — محامية متخصصة في قضايا الأسرة
-- إبراهيم حمدي — محامٍ متخصص في التحكيم وتسوية المنازعات`,
-      actions: [
-        {
-          label: 'حجز موعد مقابلة مع المحامي',
-          actionType: 'book',
-        },
-      ],
-    };
-  }
-
-  if (
-    norm.includes('سلام') ||
-    norm.includes('مرحبا') ||
-    norm.includes('صباح') ||
-    norm.includes('مساء') ||
-    norm.includes('اهلا')
-  ) {
-    return {
-      text: `وعليكم السلام ورحمة الله وبركاته 🌷
-مرحبًا بك في مكتب شومان للمحاماة والاستشارات القانونية.
-كيف يمكنني مساعدتك اليوم بخصوص خدمات المكتب أو بيانات التواصل؟`,
-      actions: [
-        {
-          label: 'استعراض الخدمات',
-          actionType: 'book',
-        },
-        {
-          label: 'أرقام التواصل وحجز موعد',
+          label: english ? 'Contact Office' : 'التواصل مع المكتب',
           actionType: 'call',
           payload: '01066650075',
         },
       ],
+    };
+  }
+
+  if (
+    query.includes('hello') ||
+    query.includes('hi') ||
+    query.includes('hey') ||
+    query.includes('مرحبا') ||
+    query.includes('مرحب') ||
+    query.includes('اهلا') ||
+    query.includes('أهلا') ||
+    query.includes('السلام عليكم')
+  ) {
+    return {
+      text: english
+        ? 'Hello! Welcome to Shoman Law Firm. How can I help you today?'
+        : 'أهلاً وسهلاً بك في مكتب شومان للمحاماة. كيف يمكنني مساعدتك اليوم؟',
     };
   }
 
   return {
-    text: `لا أملك هذه المعلومة حاليًا، ويمكن لأحد أعضاء فريق المكتب مساعدتك.`,
-    actions: [
-      {
-        label: 'اتصال بفريق المكتب: 01066650075',
-        actionType: 'call',
-        payload: '01066650075',
-      },
-      {
-        label: 'استفسار عبر واتساب',
-        actionType: 'whatsapp',
-        payload: 'https://wa.me/201066650075',
-      },
-    ],
+    text: english
+      ? 'I do not have enough information to answer this question. You can describe your legal issue in more detail, and our team can assist you.'
+      : 'لا أملك معلومات كافية للإجابة على هذا السؤال. يمكنك توضيح مشكلتك القانونية بمزيد من التفاصيل، ويمكن لفريق المكتب مساعدتك.',
   };
 }
 
-/**
- * Sends the user's message to the server-side Gemini endpoint.
- */
 export async function sendMessage(
   message: string,
-  history: Message[],
-  options?: SendMessageOptionsWithAttachment
+  history: Message[] = [],
+  options?: SendMessageOptions
 ): Promise<AIResponseResult> {
-  const fallback = resolveMockResponse(message);
-
   let replyText = '';
 
   try {
@@ -730,71 +297,48 @@ export async function sendMessage(
           content: item.content,
         })),
         attachmentName: options?.attachmentName,
+        systemPrompt: SYSTEM_PROMPT,
       }),
       signal: options?.signal,
     });
 
-    const data = await response.json();
+    let data: {
+      reply?: string;
+      error?: string;
+    };
 
-    if (!response.ok) {
-      throw new Error(
-        data?.error || 'Gemini request failed'
-      );
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error('Invalid response from server');
     }
 
-    if (
-      typeof data?.reply !== 'string' ||
-      !data.reply.trim()
-    ) {
-      throw new Error(
-        'Gemini returned an empty response'
-      );
+    if (!response.ok) {
+      throw new Error(data.error || 'Gemini request failed');
+    }
+
+    if (!data.reply) {
+      throw new Error('Gemini returned an empty response');
     }
 
     replyText = data.reply.trim();
-  } catch (error: unknown) {
+  } catch (error) {
     if (options?.signal?.aborted) {
       throw error;
     }
 
-    console.warn(
-      'Gemini chat failed. Using local fallback.',
-      error
-    );
-  }
+    console.error('AI request failed:', error);
 
-  if (!replyText) {
-    replyText = fallback.text;
-  }
+    const fallback = resolveMockResponse(message);
 
-  /*
-   * Simulate streaming on the client so the UI
-   * still displays the response smoothly.
-   */
-  const chunks = replyText.split(/(\s+)/);
-  let accumulated = '';
-
-  for (const chunk of chunks) {
-    if (options?.signal?.aborted) {
-      break;
-    }
-
-    accumulated += chunk;
-
-    if (options?.onChunk) {
-      options.onChunk(accumulated);
-    }
-
-    const delay = chunk.includes('\n') ? 16 : 6;
-
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, delay);
-    });
+    return {
+      text: fallback.text,
+      actions: fallback.actions,
+    };
   }
 
   return {
     text: replyText,
-    actions: fallback.actions,
   };
 }
 ```
