@@ -5,7 +5,6 @@ import { ChatWindow } from './components/Chat/ChatWindow';
 import { MessageComposer } from './components/Chat/MessageComposer';
 import { FirmModal } from './components/UI/FirmModal';
 import { BookingModal } from './components/UI/BookingModal';
-import { N8nConfigModal } from './components/UI/N8nConfigModal';
 import { useChat } from './hooks/useChat';
 
 export default function App() {
@@ -19,7 +18,6 @@ export default function App() {
 
   const [isFirmModalOpen, setIsFirmModalOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [isN8nModalOpen, setIsN8nModalOpen] = useState(false);
 
   const hasMessages = messages.length > 0;
 
@@ -32,7 +30,6 @@ export default function App() {
           hasMessages={hasMessages}
           onOpenFirmInfo={() => setIsFirmModalOpen(true)}
           onOpenBooking={() => setIsBookingModalOpen(true)}
-          onOpenN8nConfig={() => setIsN8nModalOpen(true)}
         />
       </div>
 
@@ -75,12 +72,6 @@ export default function App() {
       <BookingModal
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
-      />
-
-      {/* n8n Webhook Configuration Modal */}
-      <N8nConfigModal
-        isOpen={isN8nModalOpen}
-        onClose={() => setIsN8nModalOpen(false)}
       />
     </div>
   );

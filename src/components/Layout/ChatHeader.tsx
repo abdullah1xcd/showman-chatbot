@@ -1,33 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { RotateCcw, Info, Phone, Calendar, MessageSquare, Zap } from 'lucide-react';
+import React from 'react';
+import { RotateCcw, Info, Phone, Calendar, MessageSquare, Sparkles } from 'lucide-react';
 import { ShomanLogo } from '../UI/ShomanLogo';
-import { getN8nMode, N8nMode } from '../../services/n8n';
 
 interface ChatHeaderProps {
   onNewChat: () => void;
   hasMessages: boolean;
   onOpenFirmInfo?: () => void;
   onOpenBooking?: () => void;
-  onOpenN8nConfig?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onNewChat,
   hasMessages,
   onOpenFirmInfo,
-  onOpenBooking,
-  onOpenN8nConfig
+  onOpenBooking
 }) => {
-  const [n8nMode, setMode] = useState<N8nMode>('test');
-
-  useEffect(() => {
-    setMode(getN8nMode());
-    // listen for storage change
-    const handleStorage = () => setMode(getN8nMode());
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
   return (
     <header
       id="main-chat-header"
@@ -41,27 +28,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
         {/* Left (RTL): Restrained, Classy Actions */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-          {/* n8n Webhook Status Badge */}
-          {onOpenN8nConfig && (
-            <button
-              type="button"
-              id="n8n-config-btn"
-              onClick={onOpenN8nConfig}
-              className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-xs transition-colors border border-white/[0.06] min-h-[38px]"
-              title={`ربط n8n (${n8nMode === 'production' ? 'الإنتاج' : 'وضع التجربة'}) - انقر للإعدادات`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                  n8nMode === 'production'
-                    ? 'bg-emerald-400 shadow-xs'
-                    : 'bg-amber-400 animate-pulse'
-                }`}
-              />
-              <span className="font-mono text-[11px] text-[#c8d1db] whitespace-nowrap">
-                {n8nMode === 'production' ? 'n8n Live' : 'n8n Test'}
-              </span>
-            </button>
-          )}
+          {/* Gemini AI Powered Badge */}
+          <div
+            id="gemini-status-badge"
+            className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 rounded-lg bg-white/[0.03] text-xs border border-white/[0.06] min-h-[38px]"
+            title="متصل ومزود بنموذج الذكاء الاصطناعي Google Gemini"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#c5a059]" />
+            <span className="font-mono text-[11px] text-[#c8d1db] whitespace-nowrap hidden xs:inline">
+              Gemini AI
+            </span>
+          </div>
 
           {/* Direct Phone Link (Tablet & Desktop) */}
           <a

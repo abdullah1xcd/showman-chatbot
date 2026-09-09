@@ -1,6 +1,5 @@
 import { Message, MessageAction } from '../types';
 import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../data/firmData';
-import { sendN8nWebhook, getN8nMode } from './n8n';
 
 /**
  * Service abstraction for SHOMAN AI.
@@ -407,62 +406,109 @@ export interface SendMessageOptionsWithAttachment extends SendMessageOptions {
 
 /**
  * Public function to send a message.
- * Connects directly to the user's n8n webhook:
- * POST -> https://abdullahharoon.app.n8n.cloud/webhook-test/shoman-ai (or /webhook/shoman-ai)
- * If n8n returns a reply, it streams it to the user.
- * If n8n test webhook is awaiting 'Execute Workflow' or offline, it falls back
- * gracefully with a clear hint and the verified knowledge base.
+ * Connects directly to Google Gemini API via the server-side proxy route (/api/chat/stream).
+ * Streams model tokens in real time to provide an instant, fluid legal assistant experience.
  */
 export async function sendMessage(
   message: string,
-  _history: Message[],
+  history: Message[],
   options?: SendMessageOptionsWithAttachment
 ): Promise<AIResponseResult> {
-  const isEn = isEnglishQuery(message);
-  const lang = isEn ? 'en' : 'ar';
-  const mode = getN8nMode();
-
+  const fallback = resolveMockResponse(message);
   let replyText = '';
-  let actions: MessageAction[] | undefined;
-  let fromN8n = false;
+  const actions = fallback.actions;
 
   try {
-    const n8nResult = await sendN8nWebhook({
-      message,
-      language: lang,
-      attachment: options?.attachmentName,
-      mode,
-      signal: options?.signal
+    const response = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        history: history.map((h) => ({ role: h.role, content: h.content })),
+        attachmentName: options?.attachmentName,
+      }),
+      signal: options?.signal,
     });
 
-    if (n8nResult.reply && n8nResult.reply.trim()) {
-      replyText = n8nResult.reply.trim();
-      fromN8n = true;
+    if (response.ok && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        if (options?.signal?.aborted) {
+          reader.cancel();
+          break;
+        }
+
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.slice(6).trim();
+            if (dataStr === '[DONE]') {
+              continue;
+            }
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (parsed.chunk) {
+                replyText += parsed.chunk;
+                options?.onChunk?.(replyText);
+              } else if (parsed.error) {
+                console.warn('Gemini stream fallback notice:', parsed.error);
+              }
+            } catch {
+              // Ignore non-json lines
+            }
+          }
+        }
+      }
+
+      if (replyText.trim()) {
+        return {
+          text: replyText.trim(),
+          actions,
+        };
+      }
+    }
+
+    // If streaming was empty or failed, fallback to standard JSON endpoint
+    const jsonRes = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        history: history.map((h) => ({ role: h.role, content: h.content })),
+        attachmentName: options?.attachmentName,
+      }),
+      signal: options?.signal,
+    });
+
+    if (jsonRes.ok) {
+      const data = await jsonRes.json();
+      if (data.reply) {
+        replyText = data.reply;
+      }
     }
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.warn('n8n webhook notification:', errorMsg);
-
-    // Provide friendly guidance when in test mode vs production mode
-    const fallback = resolveMockResponse(message);
-    actions = fallback.actions;
-
-    if (mode === 'test') {
-      replyText = `⚠️ **تنبيه n8n (وضع الاختبار Test Mode):**\nلم يتم استلام رد من Webhook التجريبي. تأكد من الضغط على **Execute Workflow** في n8n أولاً للاستماع، أو قم بالتبديل إلى **وضع الإنتاج (Production)** بعد تفعيل Workflow.\n\n---\n**إجابة قاعدة معرفة المكتب الاحتياطية:**\n${fallback.text}`;
-    } else {
-      replyText = `⚠️ **تنبيه n8n (وضع الإنتاج Production):**\nتعذر الاتصال بـ Webhook الإنتاجي (تأكد من تفعيل Workflow عبر زر Active في n8n).\n\n---\n**إجابة قاعدة معرفة المكتب الاحتياطية:**\n${fallback.text}`;
+    if (options?.signal?.aborted) {
+      throw err;
     }
+    console.warn('Gemini chat notice:', err);
   }
 
-  // If n8n provided a reply without explicit actions, offer helpful contact actions
-  if (fromN8n && (!actions || actions.length === 0)) {
-    actions = [
-      { label: 'حجز استشارة قانونية', actionType: 'book' },
-      { label: 'واتساب المكتب', actionType: 'whatsapp', payload: 'https://wa.me/201066650075' }
-    ];
+  // Fallback to verified office knowledge base if API gave empty reply
+  if (!replyText.trim()) {
+    replyText = fallback.text;
   }
 
-  // Smooth realistic text streaming simulation for fluid chat feel
+  // Realistic text streaming simulation if not already streamed by server
   const chunks = replyText.split(/(\s+)/);
   let currentAccumulated = '';
 
@@ -472,12 +518,12 @@ export async function sendMessage(
     }
     currentAccumulated += chunks[i];
     options?.onChunk?.(currentAccumulated);
-    const delay = chunks[i].includes('\n') ? 18 : 6;
+    const delay = chunks[i].includes('\n') ? 16 : 6;
     await new Promise((res) => setTimeout(res, delay));
   }
 
   return {
     text: replyText,
-    actions
+    actions,
   };
 }
