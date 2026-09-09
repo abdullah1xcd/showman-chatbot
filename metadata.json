@@ -1,0 +1,6 @@
+{
+  "name": "SHOMAN AI — Shoman Law Firm",
+  "description": "AI Legal Assistant for Shoman Law Firm in Cairo, Egypt.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
