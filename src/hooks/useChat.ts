@@ -19,7 +19,6 @@ export function useChat() {
 
       const displayContent = trimmed || `[تم إرفاق مستند: ${attachmentName}]`;
 
-      // Create and append user message
       const userMessageId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const userMessage: Message = {
         id: userMessageId,
@@ -33,7 +32,6 @@ export function useChat() {
       setMessages(updatedHistory);
       setState('typing');
 
-      // Setup abort controller
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -52,7 +50,6 @@ export function useChat() {
               hasStartedStreaming = true;
               setState('streaming');
 
-              // Create placeholder message
               setMessages((prev) => [
                 ...prev,
                 {
@@ -62,9 +59,8 @@ export function useChat() {
                   timestamp: new Date(),
                   isStreaming: true
                 }
-              ]);
+              ]
             } else {
-              // Update stream
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === aiMessageId
@@ -76,22 +72,38 @@ export function useChat() {
           }
         });
 
-        // Finalize message with actions
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMessageId
-              ? {
-                  ...msg,
-                  content: finalResult.text,
-                  actions: finalResult.actions,
-                  isStreaming: false
-                }
-              : msg
-          )
-        );
+        // Finalize a streamed message, or create the assistant message when
+        // the current API returns a normal non-streaming response.
+        setMessages((prev) => {
+          const existing = prev.some((msg) => msg.id === aiMessageId);
+
+          if (existing) {
+            return prev.map((msg) =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    content: finalResult.text,
+                    actions: finalResult.actions,
+                    isStreaming: false
+                  }
+                : msg
+            );
+          }
+
+          return [
+            ...prev,
+            {
+              id: aiMessageId,
+              role: 'assistant',
+              content: finalResult.text,
+              actions: finalResult.actions,
+              timestamp: new Date(),
+              isStreaming: false
+            }
+          ];
+        });
         setState('completed');
       } catch {
-        // In case of interruption or unexpected error
         setMessages((prev) => [
           ...prev,
           {
