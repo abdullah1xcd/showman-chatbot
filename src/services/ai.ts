@@ -1,5 +1,5 @@
 import { Message, MessageAction } from '../types';
-import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../constants';
+import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../data/firmData';
 
 const SYSTEM_PROMPT =
   FIRM_SYSTEM_INSTRUCTIONS ||
