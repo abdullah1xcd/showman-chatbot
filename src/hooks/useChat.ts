@@ -25,7 +25,7 @@ export function useChat() {
         role: 'user',
         content: displayContent,
         timestamp: new Date(),
-        attachmentName: attachmentName
+        attachmentName
       };
 
       const updatedHistory = [...messages, userMessage];
@@ -59,7 +59,7 @@ export function useChat() {
                   timestamp: new Date(),
                   isStreaming: true
                 }
-              ]
+              ]);
             } else {
               setMessages((prev) =>
                 prev.map((msg) =>
@@ -72,8 +72,6 @@ export function useChat() {
           }
         });
 
-        // Finalize a streamed message, or create the assistant message when
-        // the current API returns a normal non-streaming response.
         setMessages((prev) => {
           const existing = prev.some((msg) => msg.id === aiMessageId);
 
