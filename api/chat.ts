@@ -1,12 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
-
 const SYSTEM_INSTRUCTION = `
 أنت المساعد القانوني الذكي الرسمي لمكتب شومان للمحاماة والاستشارات القانونية في القاهرة، مصر.
 
 مهمتك هي الإجابة على استفسارات العملاء بدقة ولباقة واحترافية.
 
 قواعد الإجابة:
-
 1. أجب باللغة العربية إذا تحدث العميل بالعربية.
 2. أجب باللغة الإنجليزية إذا تحدث العميل بالإنجليزية.
 3. اجعل الإجابات واضحة ومباشرة ومناسبة للمحادثات.
@@ -60,78 +57,99 @@ shoman-lawfirm.com
 - إبراهيم حمدي — محامٍ متخصص في التحكيم وتسوية المنازعات
 `;
 
+function buildContents(message: string, history: any[]) {
+  return [
+    ...history
+      .filter(
+        (item: any) =>
+          item &&
+          item.content &&
+          (item.role === 'user' || item.role === 'assistant')
+      )
+      .map((item: any) => ({
+        role: item.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: String(item.content) }],
+      })),
+    {
+      role: 'user',
+      parts: [{ text: String(message) }],
+    },
+  ];
+}
+
+function extractText(data: any): string {
+  return (
+    data?.candidates?.[0]?.content?.parts
+      ?.map((part: any) => part?.text || '')
+      .join('')
+      .trim() || ''
+  );
+}
+
 export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "Method not allowed",
-    });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { message, history = [] } = req.body || {};
 
   if (!message) {
-    return res.status(400).json({
-      error: "Message is required",
-    });
+    return res.status(400).json({ error: 'Message is required' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({
-      error: "GEMINI_API_KEY is not configured",
-    });
+    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured' });
   }
 
+  const contents = buildContents(String(message), Array.isArray(history) ? history : []);
+
   try {
-    const ai = new GoogleGenAI({
-      apiKey,
-    });
+    const url =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
-    const contents = [
-      ...history
-        .filter(
-          (item: any) =>
-            item &&
-            item.content &&
-            (item.role === "user" || item.role === "assistant")
-        )
-        .map((item: any) => ({
-          role: item.role === "assistant" ? "model" : "user",
-          parts: [
-            {
-              text: String(item.content),
-            },
-          ],
-        })),
-
-      {
-        role: "user",
-        parts: [
-          {
-            text: String(message),
-          },
-        ],
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
-    ];
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.3,
-      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: SYSTEM_INSTRUCTION }],
+        },
+        contents,
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1200,
+        },
+      }),
     });
 
-    return res.status(200).json({
-      reply: response.text || "No response generated.",
-    });
-  } catch (error) {
-    console.error("Gemini API error:", error);
+    const data = await response.json();
 
+    if (!response.ok) {
+      console.error('Gemini REST error:', data);
+      return res.status(502).json({
+        error: data?.error?.message || 'Gemini request failed',
+      });
+    }
+
+    const reply = extractText(data);
+
+    if (!reply) {
+      console.error('Gemini returned no text:', data);
+      return res.status(502).json({
+        error: 'Gemini returned an empty response',
+      });
+    }
+
+    return res.status(200).json({ reply });
+  } catch (error: any) {
+    console.error('Gemini API error:', error);
     return res.status(500).json({
-      error: "Gemini request failed",
+      error: error?.message || 'Gemini request failed',
     });
   }
 }
