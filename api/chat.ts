@@ -58,23 +58,30 @@ shoman-lawfirm.com
 `;
 
 function buildContents(message: string, history: any[]) {
-  return [
-    ...history
-      .filter(
-        (item: any) =>
-          item &&
-          item.content &&
-          (item.role === 'user' || item.role === 'assistant')
-      )
-      .map((item: any) => ({
-        role: item.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: String(item.content) }],
-      })),
-    {
+  const contents = history
+    .filter(
+      (item: any) =>
+        item &&
+        item.content &&
+        (item.role === 'user' || item.role === 'assistant')
+    )
+    .map((item: any) => ({
+      role: item.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: String(item.content) }],
+    }));
+
+  // The frontend may already include the current user message in history.
+  // Only append it when it is not already the last user turn.
+  const last = contents[contents.length - 1];
+  const lastText = last?.parts?.[0]?.text;
+  if (last?.role !== 'user' || lastText !== String(message)) {
+    contents.push({
       role: 'user',
       parts: [{ text: String(message) }],
-    },
-  ];
+    });
+  }
+
+  return contents;
 }
 
 function extractText(data: any): string {
@@ -107,7 +114,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const url =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent';
 
     const response = await fetch(url, {
       method: 'POST',
