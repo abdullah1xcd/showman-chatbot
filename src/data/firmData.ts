@@ -16,7 +16,13 @@ Shoman Law Firm
 مكتب محاماة واستشارات قانونية
 
 العنوان:
-٦ شارع السباح عبدالمنعم، الحي السابع، مدينة نصر، القاهرة، مصر
+فيلا 221 شارع التسعين الجنوبي - بعد المستشفي الجوي - الحي الثاني - التجمع الخامس - القاهرة
+
+العنوان بالإنجليزية:
+Villa 221, South 90th St., After the Air Force Specialized Hospital, 2nd District, Fifth Settlement, Cairo.
+
+رابط الموقع على Google Maps:
+https://maps.app.goo.gl/6aSsi3wwGNeM3bWX9
 
 البريد الإلكتروني:
 info@shoman-lawfirm.com
@@ -91,7 +97,7 @@ shoman-lawfirm.com
 export const FIRM_DATA: FirmInfo = {
   nameAr: 'مكتب شومان للمحاماة',
   nameEn: 'Shoman Law Firm',
-  address: '٦ شارع السباح عبدالمنعم، الحي السابع، مدينة نصر، القاهرة، مصر',
+  address: 'فيلا 221 شارع التسعين الجنوبي - بعد المستشفي الجوي - الحي الثاني - التجمع الخامس - القاهرة',
   email: 'info@shoman-lawfirm.com',
   phones: ['01066650075', '+20 102 410 1115'],
   website: 'shoman-lawfirm.com',
@@ -142,7 +148,7 @@ export const SUGGESTED_PROMPTS: SuggestedPromptItem[] = [
   {
     id: 'location',
     text: 'فين عنوان المكتب؟',
-    description: '٦ شارع السباح عبدالمنعم، الحي السابع، مدينة نصر، القاهرة',
+    description: 'فيلا 221 شارع التسعين الجنوبي - بعد المستشفي الجوي - الحي الثاني - التجمع الخامس - القاهرة',
     iconName: 'map-pin',
     category: 'المقر والعنوان'
   },
