@@ -48,6 +48,18 @@ function resolveMockResponse(message: string): AIResponseResult {
     return { text: english ? '💬 You can contact Shoman Law Firm directly through WhatsApp.' : '💬 يمكنك التواصل مباشرةً مع مكتب شومان للمحاماة عبر واتساب.', actions: [{ label: english ? '💬 Open WhatsApp' : '💬 فتح واتساب', actionType: 'whatsapp', payload: WHATSAPP_URL }] };
   }
 
+  if (query.includes('consultation') || query.includes('legal advice') || query.includes('consult') || query.includes('استشارة') || query.includes('استشاره') || query.includes('محامي') || query.includes('محامى')) {
+    return english
+      ? { text: '⚖️ I can help you with general information and guide you on requesting a legal consultation.\n\nFor advice concerning a specific case, the relevant facts and documents should be reviewed by a lawyer.\n\nYou can contact Shoman Law Firm directly to arrange a consultation.', actions: [{ label: '📞 Call Office', actionType: 'call', payload: '01066650075' }, { label: '💬 WhatsApp', actionType: 'whatsapp', payload: WHATSAPP_URL }] }
+      : { text: '⚖️ يسعدني مساعدتك في طلب استشارة قانونية من مكتب شومان للمحاماة.\n\nيمكنني تقديم معلومات قانونية عامة، ولكن الاستشارة الخاصة بحالة أو قضية معينة تتطلب مراجعة الوقائع والمستندات بواسطة محامٍ مختص.\n\nيمكنك التواصل مباشرةً مع المكتب لطلب الاستشارة وتوضيح تفاصيل حالتك.', actions: [{ label: '📞 الاتصال بالمكتب', actionType: 'call', payload: '01066650075' }, { label: '💬 واتساب', actionType: 'whatsapp', payload: WHATSAPP_URL }] };
+  }
+
+  if (query.includes('driving license') || query.includes('driving licence') || query.includes('driver license') || query.includes('driver licence') || query.includes('license') || query.includes('licence') || query.includes('رخصة القياده') || query.includes('رخصة القيادة') || query.includes('رخصه القياده') || query.includes('رخصه القيادة') || query.includes('رخصة') || query.includes('رخصه')) {
+    return english
+      ? { text: '⚖️ Regarding driving-licence matters, I can provide general legal information. The applicable requirements and procedures depend on the specific circumstances and the type of licence or violation involved.\n\nIf you are asking about a specific case, violation, suspension, renewal, or legal procedure, please describe the situation or contact the office for a lawyer to review the details.', actions: [{ label: '📞 Contact Office', actionType: 'call', payload: '01066650075' }, { label: '💬 WhatsApp', actionType: 'whatsapp', payload: WHATSAPP_URL }] }
+      : { text: '⚖️ بخصوص مسائل رخص القيادة، يمكنني مساعدتك بالمعلومات القانونية العامة. وتختلف الإجراءات والمتطلبات بحسب نوع الرخصة والواقعة أو المخالفة والظروف الخاصة بالحالة.\n\nإذا كان استفسارك يتعلق بحالة معينة مثل استخراج أو تجديد الرخصة، سحب أو إيقاف الرخصة، أو مخالفة مرورية، اذكر لي تفاصيل الحالة أو تواصل مع المكتب لمراجعة الأمر بواسطة محامٍ.', actions: [{ label: '📞 التواصل مع المكتب', actionType: 'call', payload: '01066650075' }, { label: '💬 واتساب', actionType: 'whatsapp', payload: WHATSAPP_URL }] };
+  }
+
   if (query.includes('email') || query.includes('mail') || query.includes('ايميل') || query.includes('إيميل') || query.includes('بريد')) {
     return { text: english ? `✉️ You can contact the firm by email at ${FIRM_DATA.email}.` : `✉️ يمكنك التواصل مع المكتب عبر البريد الإلكتروني:\n\n${FIRM_DATA.email}`, actions: [{ label: english ? '✉️ Send Email' : '✉️ إرسال بريد إلكتروني', actionType: 'email', payload: FIRM_DATA.email }] };
   }
