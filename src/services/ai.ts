@@ -1,4 +1,3 @@
-```ts
 import { Message, MessageAction } from '../types';
 import { FIRM_DATA, FIRM_SYSTEM_INSTRUCTIONS } from '../constants';
 
@@ -341,4 +340,3 @@ export async function sendMessage(
     text: replyText,
   };
 }
-```
